@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>LG Remote</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0f0f1a;
+      color: #dde;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 10px 10px 20px;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 0.95rem;
+      color: #7070c0;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+    }
+
+    /* ── Status bar ── */
+    #status-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      font-size: 0.78rem;
+    }
+    #status { flex: 1; color: #666; }
+    #status.paired    { color: #4caf50; }
+    #status.ready     { color: #2196f3; }
+    #status.error     { color: #f44336; }
+    #status.pairing   { color: #ff9800; }
+
+    .btn-sm {
+      background: #333355;
+      color: #aac;
+      border: none;
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 0.72rem;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-sm:active { background: #4444aa; }
+
+    hr.sep { border: none; border-top: 1px solid #222244; margin: 10px 0; }
+
+    /* ── Generic round button ── */
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      border-radius: 50%;
+      width: 54px;
+      height: 54px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: filter 0.08s;
+      background: #1e1e3a;
+      color: #ccd;
+    }
+    .btn:active { filter: brightness(1.5); transform: scale(0.92); }
+
+    /* colour variants */
+    .red    { background: #b71c1c; color: #fff; }
+    .blue   { background: #1565c0; color: #fff; }
+    .green  { background: #2e7d32; color: #fff; }
+    .purple { background: #4a148c; color: #fff; }
+    .grey   { background: #37474f; color: #cce; }
+
+    /* wider pill for BACK/HOME */
+    .pill {
+      border-radius: 14px;
+      width: 74px;
+      height: 40px;
+      font-size: 0.72rem;
+    }
+
+    /* ── Layout helpers ── */
+    .row {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    /* 2-row vol/ch grid */
+    .vc-grid {
+      display: grid;
+      grid-template-columns: 54px 54px 54px;
+      grid-template-rows: 54px 54px;
+      gap: 8px;
+      justify-content: center;
+      margin-bottom: 10px;
+    }
+
+    /* D-pad 3×3 */
+    .dpad {
+      display: grid;
+      grid-template-columns: 54px 54px 54px;
+      grid-template-rows: 54px 54px 54px;
+      gap: 6px;
+      justify-content: center;
+      margin-bottom: 10px;
+    }
+    .dpad-blank { background: transparent; cursor: default; }
+    .dpad-blank:active { filter: none; transform: none; }
+
+    /* number pad */
+    .numpad {
+      display: grid;
+      grid-template-columns: repeat(3, 54px);
+      gap: 8px;
+      justify-content: center;
+      margin-bottom: 10px;
+    }
+    .num-zero { grid-column: 2; }
+
+    /* ── Debug log ── */
+    #log {
+      font-size: 0.6rem;
+      color: #444;
+      background: #0a0a14;
+      border-radius: 4px;
+      padding: 4px 6px;
+      max-height: 70px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+
+<h1>LG REMOTE &#8226; 192.168.1.35</h1>
+
+<div id="status-bar">
+  <span id="status">Disconnected</span>
+  <button class="btn-sm" id="btn-connect" onclick="toggleConnect()">Connect</button>
+  <button class="btn-sm" onclick="forgetKey()" title="Clear stored pairing key">Forget</button>
+</div>
+
+<hr class="sep">
+
+<!-- Power -->
+<div class="row">
+  <button class="btn red" style="width:64px;height:64px;font-size:1.4rem;" onclick="powerOff()">⏻</button>
+</div>
+
+<hr class="sep">
+
+<!-- Vol / Mute / Ch -->
+<div class="vc-grid">
+  <button class="btn blue"   onclick="ssapOrBtn('ssap://audio/volumeUp',   'VOLUMEUP')">VOL+</button>
+  <button class="btn purple" onclick="pressBtn('MUTE')">MUTE</button>
+  <button class="btn green"  onclick="ssapOrBtn('ssap://tv/channelUp',     'CHANNELUP')">CH+</button>
+
+  <button class="btn blue"   onclick="ssapOrBtn('ssap://audio/volumeDown', 'VOLUMEDOWN')">VOL-</button>
+  <div></div>
+  <button class="btn green"  onclick="ssapOrBtn('ssap://tv/channelDown',   'CHANNELDOWN')">CH-</button>
+</div>
+
+<hr class="sep">
+
+<!-- D-pad -->
+<div class="dpad">
+  <div class="btn dpad-blank"></div>
+  <button class="btn"         onclick="pressBtn('UP')">▲</button>
+  <div class="btn dpad-blank"></div>
+
+  <button class="btn"         onclick="pressBtn('LEFT')">◀</button>
+  <button class="btn purple"  onclick="pressBtn('ENTER')">OK</button>
+  <button class="btn"         onclick="pressBtn('RIGHT')">▶</button>
+
+  <div class="btn dpad-blank"></div>
+  <button class="btn"         onclick="pressBtn('DOWN')">▼</button>
+  <div class="btn dpad-blank"></div>
+</div>
+
+<!-- Back / Home -->
+<div class="row">
+  <button class="btn grey pill" onclick="pressBtn('BACK')">← BACK</button>
+  <button class="btn grey pill" onclick="pressBtn('HOME')">⌂ HOME</button>
+</div>
+
+<hr class="sep">
+
+<!-- Number pad -->
+<div class="numpad">
+  <button class="btn" onclick="pressBtn('1')">1</button>
+  <button class="btn" onclick="pressBtn('2')">2</button>
+  <button class="btn" onclick="pressBtn('3')">3</button>
+  <button class="btn" onclick="pressBtn('4')">4</button>
+  <button class="btn" onclick="pressBtn('5')">5</button>
+  <button class="btn" onclick="pressBtn('6')">6</button>
+  <button class="btn" onclick="pressBtn('7')">7</button>
+  <button class="btn" onclick="pressBtn('8')">8</button>
+  <button class="btn" onclick="pressBtn('9')">9</button>
+  <button class="btn num-zero" onclick="pressBtn('0')">0</button>
+</div>
+
+<div id="log"></div>
+
+<script>
+/* ─────────────────── config ─────────────────── */
+const TV_IP  = '10.0.0.93';
+const TV_WS  = `ws://${TV_IP}:3000`;
+const KEY_STORE = 'lgtvClientKey_' + TV_IP;
+
+/* Full permission manifest required for pointer socket (CONTROL_MOUSE_AND_KEYBOARD) */
+const MANIFEST = {
+  manifestVersion: 1,
+  appVersion: '1.4.0',
+  appId: 'com.lge.lgremote',
+  appName: 'LG Remote',
+  localizedAppNames: { '': 'LG Remote', 'ko-KR': 'LG Remote' },
+  permissions: [
+    'LAUNCH','LAUNCH_WEBAPP','APP_TO_APP','CLOSE',
+    'TEST_OPEN','TEST_PROTECTED',
+    'CONTROL_AUDIO','CONTROL_DISPLAY',
+    'CONTROL_INPUT_JOYSTICK','CONTROL_INPUT_MEDIA_RECORDING',
+    'CONTROL_INPUT_MEDIA_PLAYBACK','CONTROL_INPUT_TV',
+    'CONTROL_INPUT_TEXT','CONTROL_MOUSE_AND_KEYBOARD',
+    'CONTROL_POWER','CONTROL_RECORDING','CONTROL_BLUETOOTH',
+    'CONTROL_TV_SCREEN',
+    'READ_APP_STATUS','READ_CURRENT_CHANNEL','READ_INPUT_DEVICE_LIST',
+    'READ_INSTALLED_APPS','READ_LGE_SDX','READ_NETWORK_STATE',
+    'READ_NOTIFICATIONS','READ_RUNNING_APPS','READ_UPDATE_INFO',
+    'READ_TV_CURRENT_TIME','READ_RECORDING_STATE','READ_SETTINGS',
+    'READ_LGE_TV_INPUT_EVENTS',
+    'SEARCH','SCAN_TV_CHANNELS','UPDATE_FROM_REMOTE_APP',
+    'WRITE_NOTIFICATION_ALERT','WRITE_SETTINGS',
+    'TEST_SECURE',
+  ],
+  signed: {
+    permissions: [
+      'TEST_SECURE','CONTROL_INPUT_TEXT','CONTROL_MOUSE_AND_KEYBOARD',
+      'READ_INSTALLED_APPS','READ_LGE_SDX','READ_NOTIFICATIONS',
+      'SEARCH','WRITE_SETTINGS','WRITE_NOTIFICATION_ALERT',
+      'CONTROL_POWER','READ_CURRENT_CHANNEL','READ_RUNNING_APPS',
+      'READ_UPDATE_INFO','UPDATE_FROM_REMOTE_APP',
+      'READ_LGE_TV_INPUT_EVENTS','READ_TV_CURRENT_TIME',
+    ]
+  }
+};
+
+/* ─────────────────── state ─────────────────── */
+let ws         = null;
+let pointerWs  = null;
+let clientKey  = localStorage.getItem(KEY_STORE) || null;
+let cmdId      = 1;
+const pending  = {};
+
+/* ─────────────────── UI helpers ─────────────────── */
+function setStatus(text, cls) {
+  const el = document.getElementById('status');
+  el.textContent = text;
+  el.className   = cls || '';
+}
+
+function log(msg) {
+  const el = document.getElementById('log');
+  const ts = new Date().toLocaleTimeString('en',{hour12:false});
+  el.textContent = `[${ts}] ${msg}\n` + el.textContent.slice(0, 1200);
+}
+
+/* ─────────────────── SSAP connection ─────────────────── */
+function toggleConnect() {
+  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+    disconnect();
+  } else {
+    connect();
+  }
+}
+
+function connect() {
+  setStatus('Connecting…');
+  log(`Connecting to ${TV_WS}`);
+
+  ws = new WebSocket(TV_WS);
+
+  ws.onopen = () => {
+    log('Socket open — sending register');
+    const payload = { forcePairing: false, pairingType: 'PROMPT', manifest: MANIFEST };
+    if (clientKey) {
+      payload['client-key'] = clientKey;
+      log('Using stored key: ' + clientKey.slice(0,8) + '…');
+    }
+    ws.send(JSON.stringify({ type: 'register', id: 'register_0', payload }));
+  };
+
+  ws.onmessage = (e) => {
+    let msg;
+    try { msg = JSON.parse(e.data); } catch { log('Bad JSON: ' + e.data.slice(0,80)); return; }
+    log(`← ${msg.type} ${msg.id || ''} ${JSON.stringify(msg.payload||{}).slice(0,80)}`);
+    handleMsg(msg);
+  };
+
+  ws.onclose = (e) => {
+    log(`Socket closed (code ${e.code})`);
+    setStatus('Disconnected');
+    document.getElementById('btn-connect').textContent = 'Connect';
+    pointerWs = null;
+  };
+
+  ws.onerror = () => {
+    setStatus('Connection error', 'error');
+    log('WebSocket error — is the TV on and on the same network?');
+  };
+}
+
+function disconnect() {
+  if (pointerWs) { try { pointerWs.close(); } catch {} pointerWs = null; }
+  if (ws)        { try { ws.close();        } catch {} ws        = null; }
+  setStatus('Disconnected');
+  document.getElementById('btn-connect').textContent = 'Connect';
+}
+
+function forgetKey() {
+  localStorage.removeItem(KEY_STORE);
+  clientKey = null;
+  disconnect();
+  log('Stored key cleared — next connect will re-pair');
+}
+
+/* ─────────────────── Message routing ─────────────────── */
+function handleMsg(msg) {
+  switch (msg.type) {
+    case 'registered':
+      clientKey = msg.payload['client-key'];
+      localStorage.setItem(KEY_STORE, clientKey);
+      setStatus('Paired ✓', 'paired');
+      document.getElementById('btn-connect').textContent = 'Disconnect';
+      log('Registered — key saved');
+      getPointerSocket();
+      break;
+
+    case 'pairing':
+      setStatus('Accept prompt on TV…', 'pairing');
+      log('Please accept the pairing prompt on the TV screen');
+      break;
+
+    case 'response':
+      /* WebOS sends type:response with pairingType:PROMPT while the TV shows the accept dialog */
+      if (msg.id === 'register_0' && msg.payload && msg.payload.pairingType === 'PROMPT') {
+        setStatus('Accept prompt on TV…', 'pairing');
+        log('TV is showing pairing prompt — accept it on the TV screen');
+        break;
+      }
+      /* fall through to dispatch pending callbacks */
+    // eslint-disable-next-line no-fallthrough
+    case 'error': {
+      const cb = pending[msg.id];
+      if (cb) { cb(msg); delete pending[msg.id]; }
+      break;
+    }
+  }
+}
+
+/* ─────────────────── SSAP request helper ─────────────────── */
+function ssapSend(uri, payload, cb) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) { log('Not connected'); return false; }
+  const id = 'c' + (cmdId++);
+  const frame = { type: 'request', id, uri };
+  if (payload) frame.payload = payload;
+  if (cb)      pending[id] = cb;
+  ws.send(JSON.stringify(frame));
+  log(`→ ${uri}`);
+  return true;
+}
+
+/* ─────────────────── Pointer socket ─────────────────── */
+function getPointerSocket() {
+  ssapSend('ssap://com.webos.service.networkinput/getPointerInputSocket', null, (msg) => {
+    if (msg.type === 'response' && msg.payload && msg.payload.socketPath) {
+      openPointerSocket(msg.payload.socketPath);
+    } else {
+      log('Pointer socket request failed: ' + JSON.stringify(msg.payload));
+      setStatus('Paired (no pointer)', 'paired');
+    }
+  });
+}
+
+function openPointerSocket(url) {
+  log(`Opening pointer socket: ${url}`);
+  /* wss:// with a self-signed cert will be silently rejected by Chrome on Android.
+     Try the given URL first; on error fall back to the ws:// variant. */
+  attemptPointerConnect(url, url.startsWith('wss://') ? url.replace('wss://', 'ws://') : null);
+}
+
+function attemptPointerConnect(url, fallbackUrl) {
+  const p = new WebSocket(url);
+  let settled = false;
+
+  p.onopen = () => {
+    settled = true;
+    pointerWs = p;
+    setStatus('Ready ✓', 'ready');
+    log(`Pointer socket open (${url.split(':')[0]})`);
+  };
+  p.onerror = () => {
+    if (!settled && fallbackUrl) {
+      log(`Pointer WS error on ${url.split(':')[0]} — trying ws:// fallback`);
+      attemptPointerConnect(fallbackUrl, null);
+    } else if (!settled) {
+      log('Pointer socket error — nav keys unavailable');
+      setStatus('Paired (nav limited)', 'paired');
+    }
+  };
+  p.onclose = () => {
+    if (pointerWs === p) {
+      pointerWs = null;
+      log('Pointer socket closed');
+    }
+  };
+}
+
+/* ─────────────────── Button actions ─────────────────── */
+
+/* Send a key via the pointer socket (all nav + num keys) */
+function pressBtn(name) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) { log('Not connected'); return; }
+  if (pointerWs && pointerWs.readyState === WebSocket.OPEN) {
+    pointerWs.send(`type:button\nname:${name}\n\n`);
+    log(`→ btn:${name}`);
+  } else {
+    log(`Pointer socket not ready for key ${name}`);
+  }
+}
+
+/* For vol/ch: prefer pointer socket, fall back to SSAP */
+function ssapOrBtn(uri, btnName) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) { log('Not connected'); return; }
+  if (pointerWs && pointerWs.readyState === WebSocket.OPEN) {
+    pointerWs.send(`type:button\nname:${btnName}\n\n`);
+    log(`→ btn:${btnName}`);
+  } else {
+    ssapSend(uri);
+  }
+}
+
+/* Power off — must use SSAP (TV can't receive pointer socket when off) */
+function powerOff() {
+  if (!ws || ws.readyState !== WebSocket.OPEN) { log('Not connected'); return; }
+  ssapSend('ssap://system/turnOff', null, (msg) => {
+    if (msg.type === 'error') log('Power off error: ' + JSON.stringify(msg.payload));
+  });
+}
+</script>
+</body>
+  </html>
