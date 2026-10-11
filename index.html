@@ -1,0 +1,161 @@
+
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111827">
+  <title>Mando LG</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #111827;
+      color: white;
+      font-family: system-ui, sans-serif;
+      text-align: center;
+    }
+    main { max-width: 390px; margin: auto; }
+    h1 { font-size: 25px; margin-bottom: 6px; }
+    .sub { color: #cbd5e1; font-size: 14px; }
+    #status {
+      margin: 18px 0;
+      padding: 12px;
+      border-radius: 12px;
+      background: #273449;
+      overflow-wrap: anywhere;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin: 12px 0;
+    }
+    button {
+      min-height: 58px;
+      border: 0;
+      border-radius: 15px;
+      background: #374151;
+      color: white;
+      font-size: 19px;
+      font-weight: 600;
+      touch-action: manipulation;
+    }
+    button:active { background: #64748b; }
+    .power { background: #b91c1c; }
+    .accent { background: #4338ca; }
+    .wide { font-size: 15px; }
+    #log {
+      text-align: left;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      font-size: 12px;
+      color: #cbd5e1;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>MANDO LG</h1>
+  <div class="sub">LG 65QNED916QA · 192.168.1.35</div>
+
+  <div id="status">Sin conectar</div>
+
+  <button class="wide" onclick="connect()">Reintentar conexión</button>
+
+  <div class="grid">
+    <button class="power" onclick="send('system/turnOff')">⏻</button>
+    <button class="accent" onclick="send('home')">⌂ Inicio</button>
+    <button onclick="send('back')">↩ Atrás</button>
+  </div>
+
+  <div class="grid">
+    <button></button>
+    <button onclick="send('up')">▲</button>
+    <button></button>
+    <button onclick="send('left')">◀</button>
+    <button class="accent" onclick="send('enter')">OK</button>
+    <button onclick="send('right')">▶</button>
+    <button></button>
+    <button onclick="send('down')">▼</button>
+    <button></button>
+  </div>
+
+  <div class="grid">
+    <button onclick="send('volumeDown')">VOL −</button>
+    <button onclick="send('mute')">🔇</button>
+    <button onclick="send('volumeUp')">VOL +</button>
+    <button onclick="send('channelDown')">CH −</button>
+    <button onclick="send('settings')">⚙ Ajustes</button>
+    <button onclick="send('channelUp')">CH +</button>
+  </div>
+
+  <div id="log">Esta página necesita una conexión WebSocket compatible con el televisor.</div>
+</main>
+
+<script>
+'use strict';
+
+const TV_IP = '192.168.1.35';
+const TV_WS = `wss://${TV_IP}:3001`;
+
+let socket = null;
+
+const statusEl = document.getElementById('status');
+const logEl = document.getElementById('log');
+
+function log(message) {
+  logEl.textContent = new Date().toLocaleTimeString() + ' — ' + message;
+}
+
+function connect() {
+  if (socket) {
+    try { socket.close(); } catch (_) {}
+  }
+
+  statusEl.textContent = 'Intentando conexión segura…';
+  log('Conectando a ' + TV_WS);
+
+  try {
+    socket = new WebSocket(TV_WS);
+
+    socket.onopen = () => {
+      statusEl.textContent =
+        'Conexión abierta; falta registrar el mando LG.';
+      log('WebSocket abierto. Este prototipo todavía necesita el protocolo de registro LG.');
+    };
+
+    socket.onerror = () => {
+      statusEl.textContent = 'No se pudo establecer la conexión.';
+      log('Error WebSocket. Comprueba el puerto, el certificado y las restricciones del navegador.');
+    };
+
+    socket.onclose = event => {
+      statusEl.textContent = 'Desconectado (código ' + event.code + ')';
+      log('Socket cerrado. Código: ' + event.code);
+    };
+
+    socket.onmessage = event => {
+      log('Respuesta de la tele: ' + event.data);
+    };
+  } catch (error) {
+    statusEl.textContent = 'No se pudo iniciar la conexión.';
+    log(String(error));
+  }
+}
+
+function send(command) {
+  if (!socket || socket.readyState !== WebSocket.OPEN) {
+    statusEl.textContent = 'No conectado: los botones no pueden enviar órdenes.';
+    log('Orden no enviada: ' + command);
+    return;
+  }
+
+  log('Conexión abierta, pero el comando ' + command +
+      ' requiere el protocolo de control y registro de LG webOS.');
+}
+</script>
+</body>
+</html>
